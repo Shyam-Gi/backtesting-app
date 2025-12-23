@@ -1,0 +1,3 @@
+# Data cache directory (gitignored)
+*.parquet
+metadata.json

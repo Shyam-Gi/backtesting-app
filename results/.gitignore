@@ -1,0 +1,4 @@
+# Backtest results (gitignored)
+*.json
+*.csv
+*.png
