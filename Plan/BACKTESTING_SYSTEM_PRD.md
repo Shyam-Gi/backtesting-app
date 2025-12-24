@@ -91,11 +91,13 @@ Build an open-source, educational backtesting system that allows users to:
 - Jupyter notebook examples
 
 **Quality Assurance:**
-- 85%+ unit test coverage
-- Integration tests (backend + UI with Playwright)
-- E2E tests (parameter changes → different results)
+- 90%+ unit test coverage (target: 95% for core modules)
+- Comprehensive integration tests (backend + UI with Playwright)
+- End-to-end tests (parameter changes → different results)
+- Performance regression tests and benchmarks
 - Bias validation (look-ahead, data quality, sanity checks)
 - Type hints + mypy strict mode
+- Automated CI/CD with multi-tier testing
 
 ### Out of Scope (V2+)
 
@@ -586,7 +588,183 @@ Report + Dashboard
 
 ---
 
-## 12. Risk & Mitigation
+## 12. Testing Strategy & Quality Assurance
+
+### 12.1 Multi-Tier Test Structure
+
+#### Unit Tests (90%+ Coverage Target)
+**Location:** `tests/unit/`
+
+**Scope:**
+- **Data Layer:** DataLoader, ParquetDataStore, caching mechanisms
+- **Strategy Layer:** BaseStrategy, built-in strategies, signal generation
+- **Execution Layer:** Simulator (slippage, commission), order execution
+- **Accounting Layer:** NAV calculation, position tracking, P&L attribution
+- **Metrics Layer:** Performance calculations, risk metrics, benchmarking
+- **Validation Layer:** Bias detection, data quality checks, sanity validations
+
+**Key Test Categories:**
+- **Edge Cases:** Missing data, invalid inputs, boundary conditions
+- **Performance:** Vectorized operations vs. manual calculations
+- **Reproducibility:** Same inputs → same outputs (stateless tests)
+- **Data Integrity:** No lookahead bias, proper timezone handling
+- **Memory Efficiency:** Polars lazy evaluation, streaming operations
+
+#### Integration Tests (Component Interaction)
+**Location:** `tests/integration/`
+
+**Scope:**
+- **End-to-End Backtest:** Full pipeline (data → strategy → execution → metrics)
+- **Strategy Plugin System:** Custom strategy discovery and execution
+- **Data Flow:** Component interaction, error propagation
+- **Performance Benchmarks:** Regression tests for speed/memory usage
+- **Parallel Execution:** Joblib multi-core backtest coordination
+
+**Test Categories:**
+- **Pipeline Validation:** Component integration, data transformation
+- **Error Handling:** Fault tolerance, graceful degradation
+- **Performance Regression:** Speed and memory benchmarks
+- **Configuration:** YAML/JSON config loading and validation
+
+#### UI/E2E Tests (User Experience)
+**Location:** `tests/e2e/` (Playwright)
+
+**Scope:**
+- **Streamlit Dashboard:** All 4 pages, responsive design, cross-browser
+- **User Workflows:** Strategy selection → configuration → execution → results
+- **Data Visualization:** Chart rendering, export functionality, comparison features
+- **Form Validation:** Input constraints, error messages, user feedback
+- **Navigation:** Page transitions, state preservation, deep linking
+
+**Test Categories:**
+- **Functional Testing:** All user journeys, feature completeness
+- **Visual Testing:** UI consistency, chart accuracy, responsive design
+- **Accessibility:** Keyboard navigation, screen reader compatibility
+- **Performance:** Page load times, concurrent user handling
+
+### 12.2 Test Architecture & Configuration
+
+#### File Structure
+```
+tests/
+├── unit/                    # Isolated component tests
+│   ├── test_data_loader.py
+│   ├── test_strategy.py
+│   ├── test_simulator.py
+│   ├── test_accounting.py
+│   ├── test_metrics.py
+│   └── test_strategies/
+├── integration/             # Component interaction tests
+│   ├── test_end_to_end_backtest.py
+│   ├── test_data_flow.py
+│   └── test_performance_benchmarks.py
+├── e2e/                     # Full UI tests (Playwright)
+│   ├── test_streamlit_app.py
+│   ├── test_strategy_runner_ui.py
+│   └── test_results_dashboard.py
+├── fixtures/                # Test data and utilities
+│   ├── sample_data.py
+│   └── strategy_fixtures.py
+├── utils/                   # Test helpers
+│   ├── assertions.py
+│   └── mocks.py
+├── performance/             # Benchmarking
+│   └── regression_tests.py
+└── conftest.py             # Global fixtures
+```
+
+#### Test Data Management
+- **Synthetic Data:** Generated OHLCV with known patterns for edge cases
+- **Real Data:** Small historical datasets for realistic scenarios  
+- **Performance Data:** Large datasets (5+ years) for benchmarking
+- **Error Data:** Corrupted/malformed data for robustness testing
+
+#### Quality Gates
+- **Coverage Requirements:** 90% unit, 80% integration, 70% E2E
+- **Performance Benchmarks:** Backtest < 1s, UI load < 2s
+- **Security Tests:** No credential exposure, input sanitization
+- **Documentation:** All tests have docstrings and examples
+
+### 12.3 Continuous Integration Pipeline
+
+#### Test Matrix
+| Test Type | Trigger | Parallel | Coverage | Report |
+|-----------|---------|----------|----------|--------|
+| Unit Tests | Every commit | 4x | +90% | XML |
+| Integration | Every PR | 2x | +80% | HTML |
+| E2E Tests | Main branch | 1x | +70% | Video |
+| Performance | Nightly | 1x | N/A | Trends |
+
+#### Quality Metrics
+- **Code Coverage:** Target 90% unit, 80% integration
+- **Performance:** Regression alerts for speed/memory
+- **Flaky Tests:** Zero tolerance; auto-retry with analysis
+- **Documentation:** 100% API documentation coverage
+
+### 12.4 Testing Tools & Frameworks
+
+#### Core Testing Stack
+```ini
+# Testing Framework
+pytest>=7.4.0              # Unit/integration tests
+pytest-asyncio>=0.21.0     # Async test support
+pytest-xdist>=3.3.0        # Parallel execution
+pytest-cov>=4.1.0          # Coverage reporting
+pytest-mock>=3.11.0        # Mocking support
+
+# UI Testing
+playwright>=1.40.0         # E2E web testing
+pytest-playwright>=0.4.0   # Playwright integration
+```
+
+#### Performance Testing
+```ini
+# Benchmarking & Profiling
+pytest-benchmark>=4.0.0    # Performance benchmarks
+memory-profiler>=0.61.0    # Memory usage tracking
+line-profiler>=4.1.0       # Line-by-line profiling
+```
+
+### 12.5 Test Environment Strategy
+
+#### Isolated Environments
+- **Unit Tests:** In-memory data, mocked external dependencies
+- **Integration Tests:** Local data files, real computations
+- **E2E Tests:** Local Streamlit server, real browser automation
+- **Performance Tests:** Representative datasets, production-like config
+
+#### Data Management
+- **Test Data Git:** Small synthetic datasets (< 1MB)
+- **Cache Integration:** Separate test cache from production
+- **Cleanup:** Automated cleanup between test runs
+- **Versioning:** Test data versioned with test expectations
+
+### 12.6 Risk-Based Testing Matrix
+
+| Risk Area | Test Focus | Coverage | Success Criteria |
+|-----------|------------|----------|-------------------|
+| Financial Accuracy | P&L calculations, commission/slippage | 100% | Manual calculation verification |
+| Look-ahead Bias | Signal timing, data leakage | 100% | Automated bias detection |
+| Performance | Backtest speed, memory usage | 95% | < 1s backtest, < 500MB memory |
+| Data Quality | Missing/invalid OHLCV data | 100% | Graceful handling, clear errors |
+| UI Usability | User workflows, error messages | 80% | All user journeys testable |
+| Scalability | Large datasets, concurrent users | 85% | Linear performance degradation |
+
+### 12.7 Test Maintenance & Evolution
+
+#### Living Documentation
+- **Test Documentation:** Auto-generated from test docstrings
+- **Example Generation:** Tests produce sample code for documentation
+- **API Contracts:** Tests enforce interface stability
+- **Change Detection:** Automated notification of breaking changes
+
+#### Continuous Improvement
+- **Flaky Test Detection:** Automated identification and alerting
+- **Performance Monitoring:** Trend analysis over time
+- **Coverage Analysis:** Strategic test placement for maximum value
+- **Review Process**: Code review requirements for test changes
+
+## 13. Risk & Mitigation
 
 | Risk | Mitigation |
 |------|-----------|
@@ -596,6 +774,10 @@ Report + Dashboard
 | Slow backtest | Vectorized from start; profile early |
 | Scalability bottleneck | Design for scale now (stateless, abstracted) |
 | User treats as financial advice | Clear disclaimers; educational framing |
+| Test maintenance burden | Automated test generation, living documentation |
+| Performance regression | Continuous benchmarking, alerting |
+| UI test flakiness | Stable selectors, proper waits, retries |
+| Coverage gaps | Risk-based testing, quality gates |
 
 ---
 
