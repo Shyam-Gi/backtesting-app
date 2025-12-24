@@ -79,7 +79,7 @@ class TestAccounting:
         final_value = acct.get_final_portfolio_value()
         assert final_value == 100000  # No trades, cash unchanged
     
-def test_process_simple_trade(self, sample_trades, sample_price_data):
+    def test_process_simple_trade(self, sample_trades, sample_price_data):
         """Test processing a simple buy-sell trade pair."""
         acct = Accounting(initial_cash=100000)
         
@@ -93,3 +93,34 @@ def test_process_simple_trade(self, sample_trades, sample_price_data):
         # Check realized P&L (accounting processes through portfolio history)
         # For profitable trades, P&L should be positive
         assert acct.realized_pnl > 0
+    
+    def test_total_return_percentage(self, sample_trades, sample_price_data):
+        """Test total return is calculated as percentage."""
+        acct = Accounting(initial_cash=100000)
+        
+        # Process trades
+        acct.process_trades(sample_trades, sample_price_data)
+        
+        # Get total return - should be percentage format
+        total_return = acct.get_total_return()
+        
+        # Return should be in percentage (not decimal)
+        assert isinstance(total_return, float)
+        
+        # For profitable trades, return should be positive
+        if acct.get_final_portfolio_value() > acct.initial_cash:
+            assert total_return > 0
+        
+        # Check that return is properly scaled as percentage
+        expected_decimal = (acct.get_final_portfolio_value() - acct.initial_cash) / acct.initial_cash
+        expected_percentage = expected_decimal * 100
+        assert abs(total_return - expected_percentage) < 0.01
+    
+    def test_total_return_no_trades(self, sample_price_data):
+        """Test total return with no trades."""
+        acct = Accounting(initial_cash=100000)
+        acct.process_trades([], sample_price_data)
+        
+        # Should have zero return without trades
+        total_return = acct.get_total_return()
+        assert total_return == 0.0

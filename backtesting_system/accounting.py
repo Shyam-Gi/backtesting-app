@@ -253,7 +253,7 @@ class Accounting:
     def get_total_return(self) -> float:
         """Get total return as percentage."""
         final_value = self.get_final_portfolio_value()
-        return (final_value - self.initial_cash) / self.initial_cash
+        return ((final_value - self.initial_cash) / self.initial_cash) * 100
         
     def get_total_pnl(self) -> float:
         """Get total P&L (realized + unrealized)."""
@@ -297,6 +297,28 @@ class Accounting:
                 position_quantity -= trade.quantity
                 
         return profitable_trades / total_closed_trades if total_closed_trades > 0 else 0.0
+        
+    def get_positions(self) -> Dict[str, Any]:
+        """Get current positions."""
+        if self.position > 0:
+            return {
+                'symbol': 'UNKNOWN',  # Single symbol backtest
+                'quantity': self.position,
+                'entry_price': self.entry_price,
+                'current_price': 0.0,  # Would need current market data
+                'unrealized_pnl': self.unrealized_pnl
+            }
+        return {}
+        
+    def get_cash_history(self) -> List[Dict[str, Any]]:
+        """Get cash history over time."""
+        return [
+            {
+                'timestamp': snap.timestamp,
+                'cash': snap.cash
+            }
+            for snap in self.portfolio_history
+        ]
         
     def reset(self) -> None:
         """Reset accounting state for new backtest."""

@@ -173,5 +173,6 @@ Thumbs.db
 # Project specific
 *.log
 *.tmp
+*.html
 temp/
 logs/

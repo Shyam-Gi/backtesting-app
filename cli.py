@@ -13,7 +13,7 @@ from typing import Dict, Any, List
 import logging
 
 from backtesting_system import (
-    BacktestConfig, run_backtest, run_backtest_with_report,
+    BacktestConfig, run_backtest, run_backtest_with_report, run_multiple_backtests,
     DataLoader
 )
 from strategies.sma_strategy import SMAStrategy

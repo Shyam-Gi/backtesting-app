@@ -87,7 +87,7 @@ def get_strategy_params_ui(strategy_name: str) -> Dict[str, Any]:
         with col1:
             params['lookback_period'] = st.slider('Lookback Period', 5, 100, 20)
         with col2:
-            params['momentum_threshold'] = st.slider(
+            params['threshold'] = st.slider(
                 'Momentum Threshold', 0.01, 0.1, 0.02, step=0.01, format="%.3f"
             )
     
@@ -103,19 +103,19 @@ def get_strategy_params_ui(strategy_name: str) -> Dict[str, Any]:
     return params
 
 
-def plot_equity_curve(nav_history: List[Dict[str, Any]], title: str = "Portfolio Equity Curve"):
+def plot_equity_curve(nav_history, title: str = "Portfolio Equity Curve"):
     """Plot equity curve"""
-    if not nav_history:
+    if nav_history.is_empty():
         return go.Figure()
     
-    df = pd.DataFrame(nav_history)
+    df = nav_history.to_pandas()
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     
     fig = go.Figure()
     
     fig.add_trace(go.Scatter(
         x=df['timestamp'],
-        y=df['nav'],
+        y=df['total_value'],
         mode='lines',
         name='Portfolio Value',
         line=dict(color='blue', width=2)
@@ -132,14 +132,14 @@ def plot_equity_curve(nav_history: List[Dict[str, Any]], title: str = "Portfolio
     return fig
 
 
-def plot_drawdown(nav_history: List[Dict[str, Any]], title: str = "Drawdown"):
+def plot_drawdown(nav_history, title: str = "Drawdown"):
     """Plot drawdown chart"""
-    if not nav_history:
+    if nav_history.is_empty():
         return go.Figure()
     
-    df = pd.DataFrame(nav_history)
+    df = nav_history.to_pandas()
     df['timestamp'] = pd.to_datetime(df['timestamp'])
-    df['nav'] = pd.to_numeric(df['nav'])
+    df['nav'] = pd.to_numeric(df['total_value'])
     
     # Calculate drawdown
     df['peak'] = df['nav'].expanding().max()
@@ -330,8 +330,8 @@ def page_strategy_runner():
                             buy_hold_returns = data.select('close').to_series().pct_change().to_list()
                             
                             validation_results = validator.validate_all(
-                                data.to_pandas(),
-                                signals.to_pandas(),
+                                data,
+                                signals,
                                 result['trades'],
                                 commission_bps,
                                 slippage_pct,
@@ -388,12 +388,12 @@ def page_results_dashboard():
     col_chart1, col_chart2 = st.columns(2)
     
     with col_chart1:
-        if result['nav_history']:
-            st.plotly_chart(plot_equity_curve(result['nav_history']), use_container_width=True)
+        if not result['nav_history'].is_empty():
+            st.plotly_chart(plot_equity_curve(result['nav_history']), width='stretch')
     
     with col_chart2:
-        if result['nav_history']:
-            st.plotly_chart(plot_drawdown(result['nav_history']), use_container_width=True)
+        if not result['nav_history'].is_empty():
+            st.plotly_chart(plot_drawdown(result['nav_history']), width='stretch')
     
     # Detailed metrics
     if result['metrics']:
@@ -404,20 +404,20 @@ def page_results_dashboard():
         # Return metrics
         col_return1, col_return2, col_return3 = st.columns(3)
         with col_return1:
-            st.metric("Sharpe Ratio", f"{metrics.get('sharpe_ratio', 'N/A'):.2f}")
+            st.metric("Sharpe Ratio", f"{metrics.sharpe_ratio:.2f}")
         with col_return2:
-            st.metric("Sortino Ratio", f"{metrics.get('sortino_ratio', 'N/A'):.2f}")
+            st.metric("Sortino Ratio", f"{metrics.sortino_ratio:.2f}")
         with col_return3:
-            st.metric("Calmar Ratio", f"{metrics.get('calmar_ratio', 'N/A'):.2f}")
+            st.metric("Calmar Ratio", f"{metrics.calmar_ratio:.2f}")
         
         # Risk metrics
         col_risk1, col_risk2, col_risk3 = st.columns(3)
         with col_risk1:
-            st.metric("Max Drawdown", f"{metrics.get('max_drawdown', 0):.2%}")
+            st.metric("Max Drawdown", f"{metrics.max_drawdown:.2%}")
         with col_risk2:
-            st.metric("Volatility", f"{metrics.get('volatility', 0):.2%}")
+            st.metric("Volatility", f"{metrics.volatility:.2%}")
         with col_risk3:
-            st.metric("Win Rate", f"{metrics.get('win_rate', 0):.2%}")
+            st.metric("Win Rate", f"{metrics.win_rate:.2%}")
     
     # Price chart with trades
     if result['trades']:
@@ -509,13 +509,13 @@ def page_strategy_comparison():
             'Total Return': f"{result['total_return']:.2%}",
             'Final Value': f"${result['final_portfolio_value']:,.0f}",
             'Trades': result['num_trades'],
-            'Sharpe': f"{metrics.get('sharpe_ratio', 'N/A'):.2f}" if metrics.get('sharpe_ratio') else 'N/A',
-            'Max DD': f"{metrics.get('max_drawdown', 0):.2%}",
-            'Win Rate': f"{metrics.get('win_rate', 0):.2%}",
+            'Sharpe': f"{metrics.sharpe_ratio:.2f}",
+            'Max DD': f"{metrics.max_drawdown:.2%}",
+            'Win Rate': f"{metrics.win_rate:.2%}",
         })
     
     comparison_df = pd.DataFrame(comparison_data)
-    st.dataframe(comparison_df, use_container_width=True, hide_index=True)
+    st.dataframe(comparison_df, width='stretch', hide_index=True)
     
     # Equity curves comparison
     if len(successful_results) > 1:
@@ -524,7 +524,7 @@ def page_strategy_comparison():
         fig = go.Figure()
         
         for result in successful_results:
-            if result['nav_history']:
+            if not result['nav_history'].is_empty():
                 df = pd.DataFrame(result['nav_history'])
                 df['timestamp'] = pd.to_datetime(df['timestamp'])
                 
@@ -532,7 +532,7 @@ def page_strategy_comparison():
                 
                 fig.add_trace(go.Scatter(
                     x=df['timestamp'],
-                    y=df['nav'],
+                    y=df['total_value'],
                     mode='lines',
                     name=label,
                     line=dict(width=2)
@@ -555,13 +555,13 @@ def page_strategy_comparison():
         scatter_data = []
         for result in successful_results:
             metrics = result['metrics']
-            if metrics.get('sharpe_ratio') and metrics.get('max_drawdown'):
+            if metrics.sharpe_ratio and metrics.max_drawdown:
                 scatter_data.append({
                     'Strategy': result['config']['strategy_name'],
                     'Symbol': result['config']['symbol'],
                     'Return': result['total_return'],
-                    'Sharpe': metrics.get('sharpe_ratio'),
-                    'Max Drawdown': abs(metrics.get('max_drawdown', 0)),
+                    'Sharpe': metrics.sharpe_ratio,
+                    'Max Drawdown': abs(metrics.max_drawdown),
                 })
         
         if scatter_data:

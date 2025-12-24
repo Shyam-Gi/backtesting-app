@@ -92,6 +92,8 @@ Build an open-source, educational backtesting system that allows users to:
 
 **Quality Assurance:**
 - 85%+ unit test coverage
+- Integration tests (backend + UI with Playwright)
+- E2E tests (parameter changes → different results)
 - Bias validation (look-ahead, data quality, sanity checks)
 - Type hints + mypy strict mode
 
@@ -455,6 +457,8 @@ plotly>=5.13.0             # Interactive charts
 
 # Quality & Testing
 pytest>=7.4.0              # Unit testing
+playwright>=1.40.0          # E2E UI testing
+pytest-playwright>=0.4.0     # Playwright integration
 mypy>=1.6.0                # Type checking
 black>=23.10.0             # Formatting
 flake8>=6.1.0              # Linting
@@ -571,9 +575,14 @@ Report + Dashboard
 - Runner orchestrator (stateless, parallelizable)
 - CLI with batch mode (`--batch backtests.yaml`)
 - Streamlit dashboard (4 pages)
+- **Integration testing with Playwright**
+  - UI parameter changes → different backtest results
+  - Multi-page navigation testing
+  - Data flow validation (input → output)
+  - Error handling verification
 - Bias validation tests
 - Documentation (README, examples)
-- **Deliverable:** 4 backtests in 2 seconds (joblib 4 cores)
+- **Deliverable:** 4 backtests in 2 seconds (joblib 4 cores) + 95% test coverage
 
 ---
 

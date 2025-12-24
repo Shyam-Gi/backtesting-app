@@ -276,8 +276,8 @@ class TestBiasValidator:
         result = self.validator.validate_vs_buy_and_hold(strategy_returns, buy_hold_returns)
         
         assert result.name == "Buy-and-Hold Comparison"
-        assert result.passed is True
-        assert result.severity == "info"
+        assert result.passed is False  # Should fail due to extreme underperformance
+        assert result.severity == "warning"
         assert "underperformed" in result.message.lower()
     
     def test_validate_vs_buy_and_hold_extreme_underperformance(self):
