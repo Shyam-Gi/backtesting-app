@@ -12,7 +12,7 @@ from pathlib import Path
 
 # Import app functions for testing
 import sys
-sys.path.append('.')
+sys.path.append('../..')
 from app import plot_equity_curve, plot_drawdown
 
 

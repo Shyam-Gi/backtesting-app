@@ -165,9 +165,17 @@ class MetricsCalculator:
         start_date = nav_history.select('timestamp').to_series().to_list()[0]
         end_date = nav_history.select('timestamp').to_series().to_list()[-1]
         
-        # Parse dates (assuming YYYY-MM-DD format)
-        start_dt = datetime.strptime(start_date.split()[0], '%Y-%m-%d')
-        end_dt = datetime.strptime(end_date.split()[0], '%Y-%m-%d')
+        # Handle different timestamp formats
+        if hasattr(start_date, 'strftime'):
+            start_dt = start_date
+        else:
+            start_dt = datetime.strptime(start_date.split()[0], '%Y-%m-%d')
+            
+        if hasattr(end_date, 'strftime'):
+            end_dt = end_date
+        else:
+            end_dt = datetime.strptime(end_date.split()[0], '%Y-%m-%d')
+            
         years = (end_dt - start_dt).days / 365.25
         
         # CAGR and annualized return

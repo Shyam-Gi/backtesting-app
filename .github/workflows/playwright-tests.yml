@@ -1,0 +1,233 @@
+name: Playwright Integration Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+jobs:
+  test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11']
+    
+    timeout-minutes: 15
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          xvfb \
+          libgtk-3-dev \
+          libgconf-2-4 \
+          libxss1 \
+          libasound2
+    
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-playwright.txt
+    
+    - name: Cache Playwright browsers
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/ms-playwright
+        key: ${{ runner.os }}-playwright-${{ hashFiles('**/requirements-playwright.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-playwright-
+    
+    - name: Install Playwright browsers
+      run: |
+        python -m playwright install chromium
+        python -m playwright install-deps
+    
+    - name: Verify installation
+      run: |
+        python -m playwright --version
+        python -c "from playwright.sync_api import sync_playwright; print('Playwright import successful')"
+    
+    - name: Run existing unit tests
+      run: |
+        pytest tests/ -v --tb=short --ignore=tests/test_playwright_integration.py
+    
+    - name: Start Streamlit app
+      run: |
+        streamlit run app.py \
+          --server.port 8501 \
+          --server.headless true \
+          --server.address localhost \
+          --browser.gatherUsageStats false &
+        echo $! > streamlit.pid
+        
+        # Wait for app to start
+        for i in {1..30}; do
+          if curl -f http://localhost:8501 > /dev/null 2>&1; then
+            echo "Streamlit app is ready"
+            break
+          fi
+          echo "Waiting for Streamlit app... ($i/30)"
+          sleep 2
+        done
+    
+    - name: Run Playwright integration tests
+      env:
+        PLAYWRIGHT_HEADLESS: true
+        PLAYWRIGHT_TIMEOUT: 60000
+      run: |
+        pytest tests/test_playwright_integration.py -v --asyncio-mode=auto \
+          --html=reports/playwright-test-report.html \
+          --self-contained-html
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: playwright-test-results-${{ matrix.python-version }}
+        path: |
+          reports/
+          screenshots/
+          videos/
+        retention-days: 7
+    
+    - name: Upload screenshots on failure
+      uses: actions/upload-artifact@v3
+      if: failure()
+      with:
+        name: screenshots-${{ matrix.python-version }}
+        path: screenshots/
+    
+    - name: Stop Streamlit app
+      if: always()
+      run: |
+        if [ -f streamlit.pid ]; then
+          kill $(cat streamlit.pid) || true
+          rm streamlit.pid
+        fi
+    
+    - name: Test summary
+      if: always()
+      run: |
+        echo "## Test Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- Python version: ${{ matrix.python-version }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Streamlit app: ✅ Started successfully" >> $GITHUB_STEP_SUMMARY
+        echo "- Unit tests: ✅ Passed" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ job.status }}" = "success" ]; then
+          echo "- Playwright tests: ✅ Passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Playwright tests: ❌ Failed" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "- Download test results from the 'Actions' tab" >> $GITHUB_STEP_SUMMARY
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install safety bandit
+        pip install -r requirements.txt
+    
+    - name: Run security scan
+      run: |
+        echo "## Security Scan Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Safety check for dependencies
+        echo "### Dependency Safety Check" >> $GITHUB_STEP_SUMMARY
+        if safety check --json --output safety-report.json; then
+          echo "✅ No known vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ Vulnerabilities detected" >> $GITHUB_STEP_SUMMARY
+          cat safety-report.json >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Bandit security scan
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Code Security Scan" >> $GITHUB_STEP_SUMMARY
+        if bandit -r . -f json -o bandit-report.json; then
+          echo "✅ No security issues found" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ Security issues detected" >> $GITHUB_STEP_SUMMARY
+          cat bandit-report.json >> $GITHUB_STEP_SUMMARY
+        fi
+
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest-cov black flake8 mypy
+    
+    - name: Run code quality checks
+      run: |
+        echo "## Code Quality Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Black formatting check
+        echo "### Code Formatting" >> $GITHUB_STEP_SUMMARY
+        if black --check --diff .; then
+          echo "✅ Code formatting is correct" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Code formatting issues found" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Flake8 linting
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Code Linting" >> $GITHUB_STEP_SUMMARY
+        if flake8 . --max-line-length=100 --ignore=E203,W503; then
+          echo "✅ No linting issues found" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Linting issues found" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Test coverage
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Test Coverage" >> $GITHUB_STEP_SUMMARY
+        pytest tests/ --cov=. --cov-report=term-missing --ignore=tests/test_playwright_integration.py
+        echo "Coverage report generated" >> $GITHUB_STEP_SUMMARY

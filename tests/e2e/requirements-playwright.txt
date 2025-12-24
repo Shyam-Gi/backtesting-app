@@ -1,0 +1,32 @@
+# Playwright dependencies for Streamlit integration testing
+playwright==1.48.0
+pytest-playwright==0.5.2
+pytest-asyncio==0.24.0
+asyncio-pool==0.6.0
+
+# Additional testing utilities
+pytest-mock==3.14.0
+pytest-xdist==3.6.1
+pytest-timeout==2.3.1
+
+# Data handling for test verification
+pandas==2.2.3
+polars==1.8.2
+
+# Streamlit (for running the app during tests)
+streamlit==1.39.0
+
+# HTTP and networking
+requests==2.32.3
+aiohttp==3.11.2
+
+# JSON handling for test data
+orjson==3.10.10
+
+# Image and screenshot comparison
+pillow==10.4.0
+opencv-python==4.10.0.84
+
+# Reporting
+pytest-html==4.1.1
+allure-pytest==2.13.5
