@@ -110,7 +110,14 @@ class Simulator:
             'final_position': self.position,
             'final_portfolio_value': portfolio_value,
             'total_return': (portfolio_value - self.initial_cash) / self.initial_cash,
-            'num_trades': len(trades)
+            'num_trades': len(trades),
+            'total_commission': sum(t.commission for t in trades),
+            'total_slippage': sum(t.slippage for t in trades),
+            'execution_details': {
+                'commission_bps': self.commission_bps,
+                'slippage_pct': self.slippage_pct,
+                'position_size_pct': self.position_size_pct
+            }
         }
 
     def _execute_trade(self, row: Dict[str, Any]) -> Optional[Trade]:
