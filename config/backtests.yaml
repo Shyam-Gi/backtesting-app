@@ -1,0 +1,55 @@
+# Batch Backtest Configuration
+# Format: YAML (can also use JSON)
+
+backtests:
+  # Test 1: SMA Crossover on AAPL
+  - strategy: "SMA"
+    symbol: "AAPL"
+    start_date: "2020-01-01"
+    end_date: "2024-12-31"
+    params:
+      fast_period: 10
+      slow_period: 50
+    initial_cash: 100000
+    commission_bps: 5.0
+    slippage_pct: 0.001
+    position_size_pct: 1.0
+
+  # Test 2: SMA Crossover on MSFT
+  - strategy: "SMA"
+    symbol: "MSFT"
+    start_date: "2020-01-01"
+    end_date: "2024-12-31"
+    params:
+      fast_period: 10
+      slow_period: 50
+    initial_cash: 100000
+    commission_bps: 5.0
+    slippage_pct: 0.001
+    position_size_pct: 1.0
+
+  # Test 3: Momentum Strategy on SPY
+  - strategy: "Momentum"
+    symbol: "SPY"
+    start_date: "2020-01-01"
+    end_date: "2024-12-31"
+    params:
+      lookback_period: 20
+      momentum_threshold: 0.02
+    initial_cash: 100000
+    commission_bps: 5.0
+    slippage_pct: 0.001
+    position_size_pct: 1.0
+
+  # Test 4: Mean Reversion on TSLA
+  - strategy: "MeanReversion"
+    symbol: "TSLA"
+    start_date: "2020-01-01"
+    end_date: "2024-12-31"
+    params:
+      ma_period: 20
+      threshold: 0.05
+    initial_cash: 100000
+    commission_bps: 5.0
+    slippage_pct: 0.001
+    position_size_pct: 1.0

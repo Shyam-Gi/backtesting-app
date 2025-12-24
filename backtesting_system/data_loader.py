@@ -116,6 +116,7 @@ class DataLoader:
             data_dir: Directory for cached data
         """
         self.store = store or ParquetDataStore(data_dir)
+        self.cache_dir = data_dir
 
     def download(
         self,
@@ -139,9 +140,12 @@ class DataLoader:
             ValueError: If data quality validation fails
         """
         # Download from yfinance
-        df_yf = yf.download(symbol, start=start, end=end, progress=False)
+        try:
+            df_yf = yf.download(symbol, start=start, end=end, progress=False)
+        except Exception as e:
+            raise ValueError(f"Failed to download data for {symbol}: {e}")
         
-        if df_yf.empty:
+        if df_yf is None or len(df_yf) == 0:
             raise ValueError(f"No data found for {symbol} between {start} and {end}")
         
         # Convert to Polars (reset_index to move Date/Datetime from index to column)
